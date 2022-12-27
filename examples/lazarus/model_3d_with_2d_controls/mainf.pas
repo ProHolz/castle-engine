@@ -88,7 +88,7 @@ end;
 
 procedure TForm1.MainButtonClick(Sender: TObject);
 begin
-  ShowMessage('Button clicked !');
+  ShowMessage('Main button clicked.');
 end;
 
 end.

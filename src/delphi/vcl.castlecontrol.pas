@@ -50,7 +50,7 @@ type
         function Height: Integer; override;
         procedure SetInternalCursor(const Value: TMouseCursor); override;
         function Dpi: Single; override;
-     end;
+      end;
 
     var
       FContainer: TContainer;
@@ -85,17 +85,21 @@ type
     function DoMouseWheel(Shift: TShiftState; WheelDelta: Integer;
       MousePos: TPoint): Boolean; override;
     procedure KeyDown(var Key: Word; Shift: TShiftState); override;
-    procedure KeyUp(var Key: Word; Shift: TShiftState); override;
     procedure KeyPress(var Key: Char); override;
+    procedure KeyUp(var Key: Word; Shift: TShiftState); override;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     procedure Paint; override;
-
+    { To handle some special keys, set on form KeyPreview
+      and call these methods from VCL form's OnKeyDown / OnKeyUp. }
+    procedure PreviewFormKeyDown(var Key: Word; Shift: TShiftState);
+    procedure PreviewFormKeyUp(var Key: Word; Shift: TShiftState);
   published
     { Access Castle Game Engine container properties and events,
       not specific for FMX. }
     property Container: TContainer read FContainer;
+
     property Align;
     property Anchors;
     property OnClick;
@@ -203,7 +207,9 @@ begin
   FContainer := TContainer.Create(Self);
   FContainer.SetSubComponent(true);
   FContainer.Name := 'Container';
-  TabStop := true;
+
+  // commented out, as this doesn't help us get focus
+  // TabStop := true;
 end;
 
 destructor TCastleControl.Destroy;
@@ -240,8 +246,8 @@ procedure TCastleControl.MouseDown(Button: TMouseButton; Shift: TShiftState; X,
 var
   MyButton: TCastleMouseButton;
 begin
-  if not Focused then // TODO: doesn't seem to help with focus
-    SetFocus;
+  //if not Focused then // TODO: doesn't seem to help with focus
+  //  SetFocus;
 
   inherited; { VCL OnMouseDown before our callbacks }
 
@@ -292,6 +298,38 @@ procedure TCastleControl.Paint;
 begin
   //inherited; // inherited not needed, and possibly causes something unnecessary
   FContainer.DoRender;
+end;
+
+procedure TCastleControl.PreviewFormKeyDown(var Key: Word; Shift: TShiftState);
+begin
+  if //Focused and // TODO: It seems we are never Focused
+     (
+       (Key = VK_Down) or
+       (Key = VK_Up) or
+       (Key = VK_Left) or
+       (Key = VK_Right) or
+       (Key = VK_Space)
+     ) then
+  begin
+    KeyDown(Key, Shift);
+    Key := 0;
+  end;
+end;
+
+procedure TCastleControl.PreviewFormKeyUp(var Key: Word; Shift: TShiftState);
+begin
+  if //Focused and // TODO: It seems we are never Focused
+     (
+       (Key = VK_Down) or
+       (Key = VK_Up) or
+       (Key = VK_Left) or
+       (Key = VK_Right) or
+       (Key = VK_Space)
+     ) then
+  begin
+    KeyUp(Key, Shift);
+    Key := 0;
+  end;
 end;
 
 procedure TCastleControl.UpdateShiftState(const Shift: TShiftState);

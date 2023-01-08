@@ -1,5 +1,5 @@
 {
-  Copyright 2018-2022 Michalis Kamburelis.
+  Copyright 2018-2023 Michalis Kamburelis.
 
   This file is part of "Castle Game Engine".
 
@@ -43,6 +43,11 @@ const
 type
   { Main project management. }
   TProjectForm = class(TForm)
+    ActionRunParameterDefaultWindowOrFullscreen: TAction;
+    ActionRunParameterRequestWindow: TAction;
+    ActionRunParameterRequestFullScreen: TAction;
+    ActionRunParameterDisableFpsLimit: TAction;
+    ActionRunParameterDisableSound: TAction;
     ActionPlayStop: TAction;
     ActionShowColliders: TAction;
     ActionSimulationPlayStop: TAction;
@@ -106,6 +111,13 @@ type
     MenuItem27: TMenuItem;
     MenuItem2888888: TMenuItem;
     MenuItem28: TMenuItem;
+    MenuItemRunParameterDefaultWindowOrFullscreen: TMenuItem;
+    Separator11: TMenuItem;
+    MenuItemRunParameterRequestWindow: TMenuItem;
+    MenuItemRunParameterRequestFullScreen: TMenuItem;
+    MenuItemRunParameterDisableFpsLimit: TMenuItem;
+    MenuItemRunParameterDisableSound: TMenuItem;
+    MenuItemRunParameters: TMenuItem;
     PanelOpenExistingView: TPanel;
     PanelNoDesign: TPanel;
     PanelNoDesignTop: TPanel;
@@ -316,6 +328,12 @@ type
     procedure ActionModeTranslateExecute(Sender: TObject);
     procedure ActionPlayStopExecute(Sender: TObject);
     procedure ActionPlayStopUpdate(Sender: TObject);
+    procedure ActionRunParameterDefaultWindowOrFullscreenExecute(Sender: TObject
+      );
+    procedure ActionRunParameterDisableFpsLimitExecute(Sender: TObject);
+    procedure ActionRunParameterDisableSoundExecute(Sender: TObject);
+    procedure ActionRunParameterRequestFullScreenExecute(Sender: TObject);
+    procedure ActionRunParameterRequestWindowExecute(Sender: TObject);
     procedure ActionShowCollidersExecute(Sender: TObject);
     procedure ActionSimulationPauseUnpauseExecute(Sender: TObject);
     procedure ActionSimulationPauseUnpauseUpdate(Sender: TObject);
@@ -471,6 +489,7 @@ type
       PlatformsInfo: TPlatformInfoList;
       CurrentPlatformInfo: Integer; //< Index to PlatformsInfo
       CurrentPackageFormat: TPackageFormat;
+      ListOpenExistingViewStr: TStringList;
       { Anchor docking forms }
       DesignForm: TForm;
       DesignHierarchyForm: TForm;
@@ -948,6 +967,34 @@ begin
     BitBtnPlayStop.Hint := 'Compile and Run (F9)';
   end;
   //BitBtnPlayStop.Checked := NowIsRunning;
+end;
+
+procedure TProjectForm.ActionRunParameterDefaultWindowOrFullscreenExecute(
+  Sender: TObject);
+begin
+  (Sender as TAction).Checked := true; // GroupIndex will make others unselected
+end;
+
+procedure TProjectForm.ActionRunParameterDisableFpsLimitExecute(Sender: TObject
+  );
+begin
+  (Sender as TAction).Checked := not (Sender as TAction).Checked;
+end;
+
+procedure TProjectForm.ActionRunParameterDisableSoundExecute(Sender: TObject);
+begin
+  (Sender as TAction).Checked := not (Sender as TAction).Checked;
+end;
+
+procedure TProjectForm.ActionRunParameterRequestFullScreenExecute(
+  Sender: TObject);
+begin
+  (Sender as TAction).Checked := true; // GroupIndex will make others unselected
+end;
+
+procedure TProjectForm.ActionRunParameterRequestWindowExecute(Sender: TObject);
+begin
+  (Sender as TAction).Checked := true; // GroupIndex will make others unselected
 end;
 
 procedure TProjectForm.ActionShowCollidersExecute(Sender: TObject);
@@ -1593,6 +1640,7 @@ begin
   BuildPlatformsMenu;
   BuildPackageFormatsMenu;
   ApplicationProperties.OnWarning.Add(@WarningNotification);
+  ListOpenExistingViewStr := TStringList.Create;
   if Docking then
   begin
     // Create dockable forms
@@ -1682,6 +1730,7 @@ begin
   FreeAndNil(DesignOutputForm);
   FreeAndNil(DesignWarningsForm);
   FreeAndNil(PlatformsInfo);
+  FreeAndNil(ListOpenExistingViewStr);
 end;
 
 procedure TProjectForm.FormHide(Sender: TObject);
@@ -1783,12 +1832,11 @@ end;
 
 procedure TProjectForm.ListOpenExistingViewDblClick(Sender: TObject);
 var
-  DesignRelativeFileName, DesignFileName, DesignUrl: String;
+  DesignFileName, DesignUrl: String;
 begin
   if ListOpenExistingView.ItemIndex <> -1 then
   begin
-    DesignRelativeFileName := ListOpenExistingView.Items[ListOpenExistingView.ItemIndex].Caption;
-    DesignFileName := CombinePaths(ProjectPath, DesignRelativeFileName);
+    DesignFileName := ListOpenExistingViewStr[ListOpenExistingView.ItemIndex];
     DesignUrl := FilenameToURISafe(DesignFileName);
     ProposeOpenDesign(DesignUrl);
   end;
@@ -2125,28 +2173,52 @@ begin
 end;
 
 procedure TProjectForm.ListOpenExistingViewAddFile(const FileInfo: TFileInfo; var StopSearch: boolean);
-var
-  ListItem: TListItem;
-  FileDateTime: TDateTime;
-  FileDateTimeStr, DesignRelative: String;
 begin
-  DesignRelative := ExtractRelativePath(ProjectPath, FileInfo.AbsoluteName);
-
-  ListItem := ListOpenExistingView.Items.Add;
-  ListItem.Caption := DesignRelative;
-  if FileAge(FileInfo.AbsoluteName, FileDateTime) then
-    FileDateTimeStr := DateTimeToAtStr(FileDateTime)
-  else
-    FileDateTimeStr := 'Unknown';
-  ListItem.SubItems.Append(FileDateTimeStr);
+  ListOpenExistingViewStr.Append(FileInfo.AbsoluteName);
 end;
 
 procedure TProjectForm.ListOpenExistingViewRefresh;
+
+  function ShortDesignName(const S: String): String;
+  begin
+    Result := DeleteFileExt(ExtractFileName(S));
+    Result := PrefixRemove('gameview', Result, true);
+    Result := PrefixRemove('gamestate', Result, true);
+    Result := SuffixRemove('.castle-user-interface', Result, true);
+  end;
+
+var
+  ListItem: TListItem;
+  FileDateTime: TDateTime;
+  DesignFileName, FileDateTimeStr: String;
 begin
-  ListOpenExistingView.Items.Clear;
+  { calculate ListOpenExistingViewStr contents }
+  ListOpenExistingViewStr.Clear;
   FindFiles(ProjectPathUrl, 'gameview*.castle-user-interface', false, @ListOpenExistingViewAddFile, [ffRecursive]);
-  // support deprecated? not worth confusion in UI
-  //FindFiles(ProjectPathUrl, 'gamestate*.castle-user-interface', false, @ListOpenExistingViewAddFile, [ffRecursive]);
+  // support deprecated names
+  FindFiles(ProjectPathUrl, 'gamestate*.castle-user-interface', false, @ListOpenExistingViewAddFile, [ffRecursive]);
+  { without sorting, the order would be ~random (as FindFiles enumarates).
+    Note that we sort including the subdirectory names, which is good,
+    we want files in the same subdirectory to be together. }
+  ListOpenExistingViewStr.Sort;
+
+  { TODO: It seems LCL UI always shows as if the "Last Modified" (column 2)
+    was sorted, and setting ListOpenExistingView.SortColumn from code
+    or LFM doesn't change it. }
+
+  { copy ListOpenExistingViewStr contents -> ListOpenExistingView GUI contents }
+  ListOpenExistingView.Items.Clear;
+  for DesignFileName in ListOpenExistingViewStr do
+  begin
+    ListItem := ListOpenExistingView.Items.Add;
+    ListItem.Caption := ShortDesignName(DesignFileName);
+    ListItem.SubItems.Append(ExtractRelativePath(ProjectPath, DesignFileName));
+    if FileAge(DesignFileName, FileDateTime) then
+      FileDateTimeStr := DateTimeToAtStr(FileDateTime)
+    else
+      FileDateTimeStr := 'Unknown';
+    ListItem.SubItems.Append(FileDateTimeStr);
+  end;
 end;
 
 procedure TProjectForm.DesignExistenceChanged;
@@ -2233,6 +2305,7 @@ begin
     Design.OnProposeOpenDesign := @ProposeOpenDesign;
     Design.OnIsRunning  := @IsRunning;
     Design.OnRunningToggle  := @RunningToggle;
+    Design.OnApiReferenceOfCurrent := @MenuItemReferenceOfCurrentClick;
 
     // Update Design.ActionPlayStop, after OnIsRunning and OnRunningToggle are set
     Design.ActionPlayStopUpdate(Design.ActionPlayStop);
@@ -2951,6 +3024,22 @@ procedure TProjectForm.BuildToolCall(const Commands: array of String;
       Params.Add('--package-format=' + PackageFormatToString(Format));
   end;
 
+  { Add parameters for "castle-engine run".
+    Call it last, because it has to add also "--" that delimits build tool params
+    from application params. }
+  procedure AddRunParameters(const Params: TStrings);
+  begin
+    Params.Add('--');
+    if ActionRunParameterDisableSound.Checked then
+      Params.Add('--no-sound');
+    if ActionRunParameterDisableFpsLimit.Checked then
+      Params.Add('--no-limit-fps');
+    if ActionRunParameterRequestFullScreen.Checked then
+      Params.Add('--fullscreen');
+    if ActionRunParameterRequestWindow.Checked then
+      Params.Add('--window');
+  end;
+
 var
   BuildToolExe, Command: String;
   QueueItem: TAsynchronousProcessQueue.TQueueItem;
@@ -3009,6 +3098,9 @@ begin
     // editor always add --fast to package, as its more comfortable for normal development
     if (Command = 'package') then
       QueueItem.Parameters.Add('--fast');
+    // add --target, --os, --cpu parameters
+    if (Command = 'run') then
+      AddRunParameters(QueueItem.Parameters);
     RunningProcess.Queue.Add(QueueItem);
   end;
 

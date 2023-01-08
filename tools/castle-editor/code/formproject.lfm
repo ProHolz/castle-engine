@@ -150,7 +150,7 @@ object ProjectForm: TProjectForm
           Constraints.MinWidth = 150
           GlyphShowMode = gsmAlways
           Layout = blGlyphTop
-          Images = Icons.ToolbarStroke1_5
+          Images = Icons.ToolbarIcons
           ImageIndex = 11
           TabOrder = 0
         end
@@ -165,7 +165,7 @@ object ProjectForm: TProjectForm
           Constraints.MinWidth = 180
           GlyphShowMode = gsmAlways
           Layout = blGlyphTop
-          Images = Icons.ToolbarStroke1_5
+          Images = Icons.ToolbarIcons
           ImageIndex = 5
           TabOrder = 1
         end
@@ -197,17 +197,28 @@ object ProjectForm: TProjectForm
           Top = 41
           Width = 1164
           Align = alClient
+          AutoSortIndicator = True
+          AutoWidthLastColumn = True
           BorderSpacing.Around = 10
           Columns = <          
+            item
+              AutoSize = True
+              Caption = 'Name'
+              MinWidth = 200
+              Width = 200
+            end          
             item
               Caption = 'File'
               Width = 600
             end          
             item
               Caption = 'Last Modified'
-              Width = 562
+              Width = 362
+              SortIndicator = siDescending
             end>
+          RowSelect = True
           ScrollBars = ssAutoBoth
+          SortType = stText
           TabOrder = 0
           ViewStyle = vsReport
           OnDblClick = ListOpenExistingViewDblClick
@@ -296,6 +307,7 @@ object ProjectForm: TProjectForm
       end
       object MenuItemDesignClose: TMenuItem
         Caption = 'Close'
+        ShortCut = 16471
         OnClick = MenuItemDesignCloseClick
       end
     end
@@ -565,6 +577,33 @@ object ProjectForm: TProjectForm
         ShortCut = 8312
         OnClick = MenuItemOnlyRunClick
       end
+      object MenuItemRunParameters: TMenuItem
+        Caption = 'Run Parameters'
+        object MenuItemRunParameterDisableSound: TMenuItem
+          Action = ActionRunParameterDisableSound
+        end
+        object MenuItemRunParameterDisableFpsLimit: TMenuItem
+          Action = ActionRunParameterDisableFpsLimit
+        end
+        object Separator11: TMenuItem
+          Caption = '-'
+        end
+        object MenuItemRunParameterDefaultWindowOrFullscreen: TMenuItem
+          Action = ActionRunParameterDefaultWindowOrFullscreen
+          GroupIndex = 45
+          RadioItem = True
+        end
+        object MenuItemRunParameterRequestFullScreen: TMenuItem
+          Action = ActionRunParameterRequestFullScreen
+          GroupIndex = 45
+          RadioItem = True
+        end
+        object MenuItemRunParameterRequestWindow: TMenuItem
+          Action = ActionRunParameterRequestWindow
+          GroupIndex = 45
+          RadioItem = True
+        end
+      end
       object MenuItemSeprator100: TMenuItem
         Caption = '-'
       end
@@ -702,7 +741,7 @@ object ProjectForm: TProjectForm
     object MenuItemHelp: TMenuItem
       Caption = '&Help'
       object MenuItemReferenceOfCurrent: TMenuItem
-        Caption = 'API Reference of Current Component / Property'
+        Caption = 'Help (API Reference) for Current Component / Property'
         ShortCut = 112
         OnClick = MenuItemReferenceOfCurrentClick
       end
@@ -848,7 +887,7 @@ object ProjectForm: TProjectForm
     Top = 472
   end
   object ActionList: TActionList
-    Images = Icons.ToolbarStroke1_5
+    Images = Icons.ToolbarIcons
     Left = 784
     Top = 464
     object ActionNewSpriteSheet: TAction
@@ -1241,6 +1280,35 @@ object ProjectForm: TProjectForm
       OnExecute = ActionPlayStopExecute
       OnUpdate = ActionPlayStopUpdate
     end
+    object ActionRunParameterDisableSound: TAction
+      Category = 'Run'
+      Caption = 'Disable Sound (--no-sound)'
+      OnExecute = ActionRunParameterDisableSoundExecute
+    end
+    object ActionRunParameterDisableFpsLimit: TAction
+      Category = 'Run'
+      Caption = 'Disable FPS limit (--no-limit-fps)'
+      OnExecute = ActionRunParameterDisableFpsLimitExecute
+    end
+    object ActionRunParameterRequestFullScreen: TAction
+      Category = 'Run'
+      Caption = 'Request FullScreen (--fullscreen)'
+      GroupIndex = 45
+      OnExecute = ActionRunParameterRequestFullScreenExecute
+    end
+    object ActionRunParameterRequestWindow: TAction
+      Category = 'Run'
+      Caption = 'Request Window (--window)'
+      GroupIndex = 45
+      OnExecute = ActionRunParameterRequestWindowExecute
+    end
+    object ActionRunParameterDefaultWindowOrFullscreen: TAction
+      Category = 'Run'
+      Caption = 'Default Window / FullScreen Mode'
+      Checked = True
+      GroupIndex = 45
+      OnExecute = ActionRunParameterDefaultWindowOrFullscreenExecute
+    end
   end
   object OpenPascalUnitDialog: TCastleOpenPascalUnitDialog
     Left = 784
@@ -1248,7 +1316,7 @@ object ProjectForm: TProjectForm
   end
   object OutputPopup: TPopupMenu
     OnPopup = ShellListPopupMenuPopup
-    Left = 304
+    Left = 288
     Top = 464
     object MenuItemOutputClean: TMenuItem
       Action = ActionOutputClean

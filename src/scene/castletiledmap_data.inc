@@ -1,4 +1,5 @@
-﻿{
+﻿{%MainUnit castletiledmap.pas}
+{
   Copyright 2015-2021 Tomasz Wojtyś, Michalis Kamburelis.
 
   This file is part of "Castle Game Engine".
@@ -13,13 +14,13 @@
   ----------------------------------------------------------------------------
 }
 
-{ Loading and manipulating "Tiled" map files (TTiledMap class). }
+{ Loading and manipulating "Tiled" map files (TCastleTiledMapData class). }
 
 {$ifdef read_interface}
 
 type
   { Loading and manipulating "Tiled" map files (http://mapeditor.org). }
-  TTiledMap = class
+  TCastleTiledMapData = class
   public
     type
       TProperty = class
@@ -136,7 +137,7 @@ type
         Name: string;
         { The opacity of the layer as a value from 0 to 1. Defaults to 1. }
         Opacity: Single;
-        { Whether the layer is shown (1) or hidden (0). Defaults to 1. }
+        { Whether the layer is shown or hidden. Defaults to true. }
         Visible: Boolean;
         { Rendering offset for this layer in pixels. Defaults to 0. (since 0.14). }
         OffsetX: Single;
@@ -164,6 +165,7 @@ type
           ("index") or sorted by their y-coordinate ("topdown"). Defaults to "topdown". }
         DrawOrder: TObjectsDrawOrder;
         Objects: TTiledObjectList;
+        constructor Create;
         destructor Destroy; override;
       end;
 
@@ -218,6 +220,9 @@ type
         { ObjectGroup since 0.10. }
         ObjectGroup: TObjectGroupLayer;
         Animation: TAnimation;
+        { Use to render the tile. Not a part of the file format.
+          In case of X3DLoadInternalTiledMap, this is always TShapeNode. }
+        RendererData: TObject;
         constructor Create;
         destructor Destroy; override;
       end;
@@ -361,10 +366,10 @@ type
 
     { Detect tile under given position.
 
-      Similar to @link(TCastleTiledMapControl.PositionToTile).
-      Given TilePosition must be in local map coordinates,
-      where each map piece has size (TileWidth, TileHeight),
-      and map bottom-left corner is in (0, 0).
+      Input Position is in local map coordinates.
+
+      Output TilePosition must is a tile coordinate,
+      where map bottom-left corner is (0, 0).
 
       This method returns @false if the position is outside of the map.
       Valid map tiles are defined as by @link(TilePositionValid). }
@@ -376,8 +381,8 @@ type
 
     { Information about which image (and how) should be displayed at given map position. }
     function TileRenderData(const TilePosition: TVector2Integer;
-      const Layer: TTiledMap.TLayer;
-      out Tileset: TTiledMap.TTileset;
+      const Layer: TLayer;
+      out Tileset: TTileset;
       out Frame: Integer;
       out HorizontalFlip, VerticalFlip, DiagonalFlip: Boolean): Boolean;
 
@@ -387,6 +392,8 @@ type
     function TileNeighbor(const Tile1, Tile2: TVector2Integer;
       const CornersAreNeighbors: Boolean): Boolean;
   end;
+
+  TTiledMap = TCastleTiledMapData deprecated 'use TCastleTiledMapData';
 
 {$endif read_interface}
 
@@ -408,7 +415,7 @@ end;
 
 { TProperty ------------------------------------------------------------------ }
 
-procedure TTiledMap.TProperty.Load(const Element: TDOMElement; const BaseUrl: String);
+procedure TCastleTiledMapData.TProperty.Load(const Element: TDOMElement; const BaseUrl: String);
 begin
   Name := Element.AttributeStringDef('name', '');
   Value := Element.AttributeStringDef('value', '');
@@ -417,7 +424,7 @@ end;
 
 { TPropertyList -------------------------------------------------------------- }
 
-procedure TTiledMap.TPropertyList.Load(const Element: TDOMElement; const BaseUrl: String);
+procedure TCastleTiledMapData.TPropertyList.Load(const Element: TDOMElement; const BaseUrl: String);
 var
   I: TXMLElementIterator;
   NewProperty: TProperty;
@@ -438,7 +445,7 @@ end;
 
 { TData ---------------------------------------------------------------------- }
 
-procedure TTiledMap.TData.Load(const Element: TDOMElement; const BaseUrl: String);
+procedure TCastleTiledMapData.TData.Load(const Element: TDOMElement; const BaseUrl: String);
 
   procedure AddData(const Item: Cardinal);
   var
@@ -560,13 +567,13 @@ end;
 
 { TImage --------------------------------------------------------------------- }
 
-destructor TTiledMap.TImage.Destroy;
+destructor TCastleTiledMapData.TImage.Destroy;
 begin
   FreeAndNil(Data);
   inherited;
 end;
 
-procedure TTiledMap.TImage.Load(const Element: TDOMElement; const BaseUrl: String);
+procedure TCastleTiledMapData.TImage.Load(const Element: TDOMElement; const BaseUrl: String);
 const
   DefaultTrans: TCastleColorRGB = (X: 1.0; Y: 0.0; Z: 1.0); {Fuchsia}
 var
@@ -600,12 +607,20 @@ begin
   finally FreeAndNil(I) end;
 end;
 
-procedure TTiledMap.TImage.DetermineSize;
+procedure TCastleTiledMapData.TImage.DetermineSize;
 var
  ImageData: TEncodedImage;
 begin
   if (Width = 0) and (Height = 0) then
   begin
+    { Note: While we could store Image to use it loader, e.g.
+
+        TilesetTextureNode.LoadFromImage(Tileset.Image, false, Tileset.Image.URL);
+
+      ... but this would be an optimization that complicates code for a seldom use-case
+      (because new Tiled files should include size).
+      So we don't do it, and just load + free image only to read size. }
+
     WritelnLog('Determining image size by loading it. It is more efficient to store image size in TMX file.');
     ImageData := LoadEncodedImage(URL);
     try
@@ -617,7 +632,7 @@ end;
 
 { TFrame --------------------------------------------------------------------- }
 
-procedure TTiledMap.TFrame.Load(const Element: TDOMElement; const BaseUrl: String);
+procedure TCastleTiledMapData.TFrame.Load(const Element: TDOMElement; const BaseUrl: String);
 var
   TmpStr: string;
 begin
@@ -629,7 +644,7 @@ end;
 
 { TAnimation ----------------------------------------------------------------- }
 
-procedure TTiledMap.TAnimation.Load(const Element: TDOMElement; const BaseUrl: String);
+procedure TCastleTiledMapData.TAnimation.Load(const Element: TDOMElement; const BaseUrl: String);
 var
   I: TXMLElementIterator;
   NewFrame: TFrame;
@@ -650,7 +665,7 @@ end;
 
 { TTile ------------------------------------------------------------------- }
 
-constructor TTiledMap.TTile.Create;
+constructor TCastleTiledMapData.TTile.Create;
 begin
   inherited;
   Properties := TPropertyList.Create;
@@ -661,7 +676,7 @@ begin
   Probability := 1.0;
 end;
 
-destructor TTiledMap.TTile.Destroy;
+destructor TCastleTiledMapData.TTile.Destroy;
 begin
   FreeAndNil(Properties);
   FreeAndNil(Animation);
@@ -670,7 +685,7 @@ begin
   inherited;
 end;
 
-procedure TTiledMap.TTile.Load(const Element: TDOMElement; const BaseUrl: String);
+procedure TCastleTiledMapData.TTile.Load(const Element: TDOMElement; const BaseUrl: String);
 var
   I: TXMLElementIterator;
   TmpStr, LowerTagName: string;
@@ -715,20 +730,20 @@ end;
 
 { TTiledObject ------------------------------------------------------------------- }
 
-constructor TTiledMap.TTiledObject.Create;
+constructor TCastleTiledMapData.TTiledObject.Create;
 begin
   inherited;
   Properties := TPropertyList.Create;
 end;
 
-destructor TTiledMap.TTiledObject.Destroy;
+destructor TCastleTiledMapData.TTiledObject.Destroy;
 begin
   FreeAndNil(Properties);
   FreeAndNil(Points);
   inherited;
 end;
 
-procedure TTiledMap.TTiledObject.Load(const Element: TDOMElement; const BaseUrl: String);
+procedure TCastleTiledMapData.TTiledObject.Load(const Element: TDOMElement; const BaseUrl: String);
 var
   I: TXMLElementIterator;
   TmpStr: string;
@@ -826,27 +841,27 @@ begin
   finally FreeAndNil(I) end;
 end;
 
-function TTiledMap.TTiledObject.Position: TVector2;
+function TCastleTiledMapData.TTiledObject.Position: TVector2;
 begin
   Result := Vector2(X, Y);
 end;
 
 { TLayer ------------------------------------------------------------------- }
 
-constructor TTiledMap.TLayer.Create;
+constructor TCastleTiledMapData.TLayer.Create;
 begin
   inherited;
   Properties := TPropertyList.Create;
 end;
 
-destructor TTiledMap.TLayer.Destroy;
+destructor TCastleTiledMapData.TLayer.Destroy;
 begin
   FreeAndNil(Properties);
   FreeAndNil(Data);
   inherited;
 end;
 
-procedure TTiledMap.TLayer.Load(const Element: TDOMElement; const BaseUrl: String);
+procedure TCastleTiledMapData.TLayer.Load(const Element: TDOMElement; const BaseUrl: String);
 var
   I: TXMLElementIterator;
   TmpStr, LowerTagName: string;
@@ -885,20 +900,26 @@ begin
   finally FreeAndNil(I) end;
 end;
 
-function TTiledMap.TLayer.Offset: TVector2;
+function TCastleTiledMapData.TLayer.Offset: TVector2;
 begin
   Result := Vector2(OffsetX, OffsetY);
 end;
 
 { TObjectGroupLayer ---------------------------------------------------------- }
 
-destructor TTiledMap.TObjectGroupLayer.Destroy;
+constructor TCastleTiledMapData.TObjectGroupLayer.Create;
+begin
+  inherited;
+  Objects := TTiledObjectList.Create;
+end;
+
+destructor TCastleTiledMapData.TObjectGroupLayer.Destroy;
 begin
   FreeAndNil(Objects);
   inherited;
 end;
 
-procedure TTiledMap.TObjectGroupLayer.Load(const Element: TDOMElement; const BaseUrl: String);
+procedure TCastleTiledMapData.TObjectGroupLayer.Load(const Element: TDOMElement; const BaseUrl: String);
 var
   I: TXMLElementIterator;
   NewObject: TTiledObject;
@@ -925,8 +946,6 @@ begin
       begin
         NewObject := TTiledObject.Create;
         NewObject.Load(I.Current, BaseUrl);
-        if not Assigned(Objects) then
-          Objects := TTiledObjectList.Create;
         Objects.Add(NewObject);
       end;
     end;
@@ -935,13 +954,13 @@ end;
 
 { TImageLayer ---------------------------------------------------------------- }
 
-destructor TTiledMap.TImageLayer.Destroy;
+destructor TCastleTiledMapData.TImageLayer.Destroy;
 begin
   FreeAndNil(Image);
   inherited;
 end;
 
-procedure TTiledMap.TImageLayer.Load(const Element: TDOMElement; const BaseUrl: String);
+procedure TCastleTiledMapData.TImageLayer.Load(const Element: TDOMElement; const BaseUrl: String);
 var
   I: TXMLElementIterator;
 begin
@@ -963,7 +982,7 @@ end;
 
 { TTileset ------------------------------------------------------------------- }
 
-constructor TTiledMap.TTileset.Create;
+constructor TCastleTiledMapData.TTileset.Create;
 begin
   inherited;
   Properties := TPropertyList.Create;
@@ -972,7 +991,7 @@ begin
   FirstGID := 1;
 end;
 
-destructor TTiledMap.TTileset.Destroy;
+destructor TCastleTiledMapData.TTileset.Destroy;
 begin
   FreeAndNil(Image);
   FreeAndNil(Tiles);
@@ -980,7 +999,7 @@ begin
   inherited;
 end;
 
-procedure TTiledMap.TTileset.Load(const Element: TDOMElement; const BaseUrl: String);
+procedure TCastleTiledMapData.TTileset.Load(const Element: TDOMElement; const BaseUrl: String);
 
   { TSX file loading. }
   procedure LoadTilesetFromURL;
@@ -1020,7 +1039,14 @@ procedure TTiledMap.TTileset.Load(const Element: TDOMElement; const BaseUrl: Str
     { place existing tiles in NewTiles, making sure they are at proper index }
     for Tile in Tiles do
     begin
-      Check(Between(Tile.Id, 0, TileCount - 1), 'Tile id is outside of allowed range');
+      if not Between(Tile.Id, 0, TileCount - 1) then
+      begin
+        WritelnWarning('Tile id %d is outside of allowed range 0..%d', [
+          Tile.Id,
+          TileCount - 1
+        ]);
+        Continue;
+      end;
       Check(NewTiles[Tile.Id] = nil, 'Multiple tiles have the same id');
       NewTiles[Tile.Id] := Tile;
     end;
@@ -1056,7 +1082,7 @@ begin
 
       <tileset firstgid="10" source="image3x3-regular.tsx"/>
 
-     This means that TTiledMap.TTileset.Load calls itself,
+     This means that TCastleTiledMapData.TTileset.Load calls itself,
      and outer call set FirstGID to 10 and it should not be overridden by inner call.
      Testcases in examples/tiled/map_viewer/data/maps/multiple_tilesets/ . }
 
@@ -1110,20 +1136,24 @@ begin
     end;
   finally FreeAndNil(I) end;
 
-  { Fallback: TileCount determination if is not found in (old) tsx-files prior
-    to version 0.13 (Aug 2015). }
+  { In case tileset doesn't specify image size,
+    testcase: examples/tiled/map_viewer/data/maps/perspective_walls.tmx }
+  Image.DetermineSize;
+
+  { Fix Columns if necessary, testcase: examples/tiled/map_viewer/data/maps/desert.tmx }
+  if Columns = 0 then
+    Columns := Image.Width div TileWidth;
+
+  { Fix TileCount, if it is not found in (old) tsx-files prior to version 0.13 (Aug 2015). }
   if TileCount = 0 then
-  begin
-    Image.DetermineSize;
-    TileCount := (Image.Width div TileWidth) * (Image.Height div TileHeight);
-  end;
+    TileCount := (Image.Height div TileHeight) * Columns;
 
   CompleteTiles;
 end;
 
-{ TTiledMap ------------------------------------------------------------------ }
+{ TCastleTiledMapData ------------------------------------------------------------------ }
 
-procedure TTiledMap.LoadTMXFile(const Stream: TStream; const ABaseUrl: String);
+procedure TCastleTiledMapData.LoadTMXFile(const Stream: TStream; const ABaseUrl: String);
 var
   Doc: TXMLDocument;
 begin
@@ -1133,7 +1163,7 @@ begin
   finally FreeAndNil(Doc) end;
 end;
 
-procedure TTiledMap.LoadTMXFile(const AURL: String);
+procedure TCastleTiledMapData.LoadTMXFile(const AURL: String);
 var
   Doc: TXMLDocument;
 begin
@@ -1143,7 +1173,7 @@ begin
   finally FreeAndNil(Doc) end;
 end;
 
-procedure TTiledMap.LoadTMXFileInternal(const Doc: TXMLDocument);
+procedure TCastleTiledMapData.LoadTMXFileInternal(const Doc: TXMLDocument);
 var
   TmpStr, LowerTagName: string;
   I: TXMLElementIterator;
@@ -1255,7 +1285,7 @@ begin
   finally FreeAndNil(I) end;
 end;
 
-constructor TTiledMap.Create(const Stream: TStream; const ABaseUrl: String);
+constructor TCastleTiledMapData.Create(const Stream: TStream; const ABaseUrl: String);
 begin
   inherited Create;
 
@@ -1268,7 +1298,7 @@ begin
   LoadTMXFile(Stream, ABaseUrl);
 end;
 
-constructor TTiledMap.Create(const AURL: string);
+constructor TCastleTiledMapData.Create(const AURL: string);
 var
   StreamOptions: TStreamOptions;
   Gzipped: boolean;
@@ -1285,7 +1315,7 @@ begin
   finally FreeAndNil(Stream) end;
 end;
 
-destructor TTiledMap.Destroy;
+destructor TCastleTiledMapData.Destroy;
 begin
   FreeAndNil(FTilesets);
   FreeAndNil(FProperties);
@@ -1293,7 +1323,7 @@ begin
   inherited Destroy;
 end;
 
-function TTiledMap.TilePositionValid(const TilePosition: TVector2Integer): Boolean;
+function TCastleTiledMapData.TilePositionValid(const TilePosition: TVector2Integer): Boolean;
 begin
   Result :=
     (TilePosition.X >= 0) and
@@ -1302,7 +1332,7 @@ begin
     (TilePosition.Y < Height);
 end;
 
-function TTiledMap.PositionToTile(const Position: TVector2;
+function TCastleTiledMapData.PositionToTile(const Position: TVector2;
   out TilePosition: TVector2Integer): Boolean;
 var
   X, Y, ResultYPlusX, ResultYMinusX: Single;
@@ -1357,7 +1387,7 @@ begin
   Result := TilePositionValid(TilePosition);
 end;
 
-function TTiledMap.TileRenderPosition(const TilePosition: TVector2Integer): TVector2;
+function TCastleTiledMapData.TileRenderPosition(const TilePosition: TVector2Integer): TVector2;
 var
   X, Y: Integer;
   RowIncreaseY: Single;
@@ -1407,9 +1437,9 @@ begin
   end;
 end;
 
-function TTiledMap.TileRenderData(const TilePosition: TVector2Integer;
-  const Layer: TTiledMap.TLayer;
-  out Tileset: TTiledMap.TTileset;
+function TCastleTiledMapData.TileRenderData(const TilePosition: TVector2Integer;
+  const Layer: TLayer;
+  out Tileset: TTileset;
   out Frame: Integer;
   out HorizontalFlip, VerticalFlip, DiagonalFlip: Boolean): Boolean;
 
@@ -1452,7 +1482,7 @@ begin
   Result := true;
 end;
 
-function TTiledMap.TileNeighbor(const Tile1, Tile2: TVector2Integer;
+function TCastleTiledMapData.TileNeighbor(const Tile1, Tile2: TVector2Integer;
   const CornersAreNeighbors: Boolean): Boolean;
 var
   XDiff, YDiff: Integer;

@@ -1,4 +1,5 @@
-﻿{
+﻿{%MainUnit castletiledmap.pas}
+{
   Copyright 2015-2018 Tomasz Wojtyś, Michalis Kamburelis.
 
   This file is part of "Castle Game Engine".
@@ -21,7 +22,7 @@ type
   { Display a map created in Tiled (https://www.mapeditor.org/). }
   TCastleTiledMapControl = class(TCastleUserInterface)
   strict private
-    FMap: TTiledMap;
+    FMap: TCastleTiledMapData;
     FURL: String;
     FObjectsVisible: Boolean;
     FOrigin: TVector2;
@@ -54,7 +55,7 @@ type
 
     { Currently loaded map (from @link(URL)), if any.
       @nil if no map is loaded (when @link(URL) is empty). Read-only. }
-    property Map: TTiledMap read FMap;
+    property Map: TCastleTiledMapData read FMap;
 
     { Detect tile under given position.
 
@@ -90,7 +91,7 @@ type
 
       This method returns @false if the position is outside of the map.
       Valid map tiles are from (0, 0) (lower-left) to
-      (@link(TTiledMap.Width) - 1, @link(TTiledMap.Height) - 1) (upper-right). }
+      (@link(TCastleTiledMapData.Width) - 1, @link(TCastleTiledMapData.Height) - 1) (upper-right). }
     function PositionToTile(const Position: TVector2; const ContainerCoordinates: Boolean;
       out TilePosition: TVector2Integer): Boolean;
 
@@ -133,11 +134,11 @@ type
       Returns TFloatRectangle.Empty is @link(Map) not loaded (@link(URL) not set).
 
       Some maps may use tilesets in which image size is different
-      than map tile size. That is, TTiledMap.TTileset.TileWidth may be different
-      than TTiledMap.TileWidth for some tilesets.
+      than map tile size. That is, TCastleTiledMapData.TTileset.TileWidth may be different
+      than TCastleTiledMapData.TileWidth for some tilesets.
       The simpler version of this method,
       without ForceTileWidth/Height, just returns the size of the map tile looking at
-      (TTiledMap.TileWidth, TTiledMap.TileHeight), since it doesn't know
+      (TCastleTiledMapData.TileWidth, TCastleTiledMapData.TileHeight), since it doesn't know
       the tileset you use.
 
       You can pass ForceTileWidth and ForceTileHeight to set particular size.
@@ -189,7 +190,7 @@ type
   {$define read_interface_class}
   {$I auto_generated_persistent_vectors/tcastletiledmapcontrol_persistent_vectors.inc}
   {$undef read_interface_class}
-  end;
+  end {$ifdef FPC}deprecated 'use TCastleTiledMap in a viewport'{$endif};
 
 {$endif read_interface}
 
@@ -221,8 +222,8 @@ end;
 
 procedure TCastleTiledMapControl.RenderObjects;
 var
-  Lay: TTiledMap.TLayer;              // ObjectGroupLayer
-  TiledObj: TTiledMap.TTiledObject;   // one TiledObject
+  Lay: TCastleTiledMapData.TLayer;              // ObjectGroupLayer
+  TiledObj: TCastleTiledMapData.TTiledObject;   // one TiledObject
   TiledObjPoints: array of TVector2;  // holds points of TiledObject as array of TVector2
 
   { Transform point from Tiled position to our render position.
@@ -311,9 +312,9 @@ begin
   { Object groups. }
   for Lay in Map.Layers do
   begin
-    if (Lay is TTiledMap.TObjectGroupLayer) and Lay.Visible then
+    if (Lay is TCastleTiledMapData.TObjectGroupLayer) and Lay.Visible then
     begin
-      for TiledObj in (Lay as TTiledMap.TObjectGroupLayer).Objects do
+      for TiledObj in (Lay as TCastleTiledMapData.TObjectGroupLayer).Objects do
       begin
         if TiledObj.Visible then
         begin
@@ -332,17 +333,12 @@ end;
 
 procedure TCastleTiledMapControl.LoadTilesetsImages;
 var
-  Tileset: TTiledMap.TTileset;
+  Tileset: TCastleTiledMapData.TTileset;
   Spr: TSprite;
 begin
   if Map <> nil then
     for Tileset in Map.Tilesets do
     begin
-      //todo: use transparent color (implement in TSprite?)
-      if Tileset.Columns = 0 then
-        Tileset.Columns := Tileset.Image.Width div Tileset.TileWidth;
-      if Tileset.TileCount = 0 then
-        Tileset.TileCount := (Tileset.Image.Height div Tileset.TileHeight) * Tileset.Columns;
       if (Tileset.TileCount = 0) or (Tileset.Columns = 0) then
       begin
         WriteLnWarning('Empty Tileset');
@@ -372,7 +368,7 @@ end;
 
 procedure TCastleTiledMapControl.FreeTilesetsImages;
 var
-  Tileset: TTiledMap.TTileset;
+  Tileset: TCastleTiledMapData.TTileset;
 begin
   if Map <> nil then
     for Tileset in Map.Tilesets do
@@ -397,7 +393,7 @@ begin
     FURL := Value;
     Close;
     if Value <> '' then
-      FMap := TTiledMap.Create(Value);
+      FMap := TCastleTiledMapData.Create(Value);
     LoadTilesetsImages;
   end;
 end;
@@ -409,9 +405,9 @@ var
   { Return TSprite to render this tile,
     with sprite's Frame, HorizontalFlip, VerticalFlip, DiagonalFlip already set.
     May return @nil if nothing to render. }
-  function TileSprite(const Layer: TTiledMap.TLayer; const X, Y: Integer): TSprite;
+  function TileSprite(const Layer: TCastleTiledMapData.TLayer; const X, Y: Integer): TSprite;
   var
-    Tileset: TTiledMap.TTileset;
+    Tileset: TCastleTiledMapData.TTileset;
     Frame: Integer;
     HorizontalFlip, VerticalFlip, DiagonalFlip: Boolean;
   begin
@@ -440,7 +436,7 @@ var
     end;
   end;
 
-  procedure RenderTile(const Layer: TTiledMap.TLayer; const X, Y: Integer);
+  procedure RenderTile(const Layer: TCastleTiledMapData.TLayer; const X, Y: Integer);
   var
     Spr: TSprite;
     SpriteRenderRect: TFloatRectangle;
@@ -455,42 +451,55 @@ var
       Spr.DrawingWidth, // corresponds to Tileset.TileWidth
       Spr.DrawingHeight // corresponds to Tileset.TileHeight
     );
-    Spr.Draw(SpriteRenderRect);
+
+    { Don't render off-screen images, this makes big difference for huge maps where
+      most content if off-screen,
+      testcase: examples/tiled/map_viewer/data/maps/desert_big.tmx .
+      We rely on ClipChildren = true here: Tiled map rendering is always
+      limited to RR. }
+    if RR.Collides(SpriteRenderRect) then
+      Spr.Draw(SpriteRenderRect);
   end;
 
 var
   X, Y: Integer;
-  Layer: TTiledMap.TLayer;
+  Layer: TCastleTiledMapData.TLayer;
 begin
   inherited Render;
   if Map = nil then Exit;
 
-  RR := RenderRect;
+  { This routine benefits a lot from TDrawableImage automatic batching,
+    testcase: examples/tiled/map_viewer/data/maps/desert_big.tmx }
+  TDrawableImage.BatchingBegin;
+  try
+    RR := RenderRect;
 
-  if Map.BackgroundColor[3] <> 0 then
-    DrawRectangle(RR, Map.BackgroundColor);
+    if Map.BackgroundColor[3] <> 0 then
+      DrawRectangle(RR, Map.BackgroundColor);
 
-  for Layer in Map.Layers do
-  begin
-    if not Layer.Visible then Continue;
-    if (Layer is TTiledMap.TObjectGroupLayer) or  // TODO: See below, it would be better to render TObjectGroupLayer here, instead of special RenderObjects call
-       (Layer is TTiledMap.TImageLayer) then
-      Continue;
+    for Layer in Map.Layers do
+    begin
+      if not Layer.Visible then Continue;
+      if (Layer is TCastleTiledMapData.TObjectGroupLayer) or  // TODO: See below, it would be better to render TObjectGroupLayer here, instead of special RenderObjects call
+         (Layer is TCastleTiledMapData.TImageLayer) then
+        Continue;
 
-    // TODO: use Map.RenderOrder
+      // TODO: use Map.RenderOrder
 
-    for Y := Map.Height - 1 downto 0 do
-      for X := 0 to Map.Width - 1 do
-        RenderTile(Layer, X, Y);
-  end;
+      for Y := Map.Height - 1 downto 0 do
+        for X := 0 to Map.Width - 1 do
+          RenderTile(Layer, X, Y);
+    end;
 
-  { TODO: This is Redundant? Better to render the layer at cond. above at
-    (Layer is TTiledMap.TObjectGroupLayer). Would make redundant property
-    ObjectsVisible obsolete. This property is not found in the tmx tile specs.,
-    but covered by TLayer.Visible already. See:
-    https://doc.mapeditor.org/en/stable/reference/tmx-map-format/#objectgroup }
-  if FObjectsVisible then
-    RenderObjects;
+    { TODO: This is Redundant? Better to render the layer at cond. above at
+      (Layer is TCastleTiledMapData.TObjectGroupLayer). Would make redundant property
+      ObjectsVisible obsolete. This property is not found in the tmx tile specs.,
+      but covered by TLayer.Visible already. See:
+      https://doc.mapeditor.org/en/stable/reference/tmx-map-format/#objectgroup }
+    if FObjectsVisible then
+      RenderObjects;
+
+  finally TDrawableImage.BatchingEnd end;
 end;
 
 procedure TCastleTiledMapControl.SetOrigin(const Value: TVector2);
@@ -515,7 +524,7 @@ procedure TCastleTiledMapControl.SetSmoothScaling(const Value: Boolean);
 
   procedure ChangeExistingImages;
   var
-    Tileset: TTiledMap.TTileset;
+    Tileset: TCastleTiledMapData.TTileset;
   begin
     if Map <> nil then
       for Tileset in Map.Tilesets do
@@ -536,7 +545,7 @@ procedure TCastleTiledMapControl.SetSmoothScalingSafeBorder(const Value: Boolean
 
   procedure ChangeExistingImages;
   var
-    Tileset: TTiledMap.TTileset;
+    Tileset: TCastleTiledMapData.TTileset;
   begin
     if Map <> nil then
       for Tileset in Map.Tilesets do

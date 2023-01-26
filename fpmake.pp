@@ -252,7 +252,7 @@ begin
     P.Targets.AddUnit('castleinternalspacefillingcurves.pas');
     P.Targets.AddUnit('castleinternalspheresampling.pas');
     P.Targets.AddUnit('castleinternalsphericalharmonics.pas');
-    P.Targets.AddUnit('castlenurbs.pas');
+    P.Targets.AddUnit('castleinternalnurbs.pas');
     P.Targets.AddUnit('castlesectors.pas');
     P.Targets.AddUnit('castletransform.pas');
     P.Targets.AddUnit('castletriangles.pas');
@@ -452,7 +452,6 @@ begin
     P.Targets.AddUnit('castlejoysticks.pas');
     P.Targets.AddUnit('castlekeysmouse.pas');
     P.Targets.AddUnit('castlenotifications.pas');
-    P.Targets.AddUnit('castletiledmap.pas');
     P.Targets.AddUnit('castleuicontrols.pas');
     if Defaults.OS in AllWindowsOSes then
     begin
@@ -515,6 +514,7 @@ begin
     P.Targets.AddUnit('castleshapes.pas');
     P.Targets.AddUnit('castleterrain.pas');
     P.Targets.AddUnit('castlethirdpersonnavigation.pas');
+    P.Targets.AddUnit('castletiledmap.pas');
     P.Targets.AddUnit('castleviewport.pas');
     P.Targets.AddUnit('x3dcamerautils.pas');
     P.Targets.AddUnit('x3dtime.pas');
